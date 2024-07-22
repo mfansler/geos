@@ -27,7 +27,6 @@
 using geos::algorithm::PolygonNodeTopology;
 using geos::geom::CoordinateXY;
 using geos::geom::Dimension;
-using geos::geom::Location;
 using geos::geom::Position;
 using geos::io::WKTWriter;
 

@@ -100,9 +100,6 @@ LinearBoundary::addEndpoint(const CoordinateXY *p, Coordinate::ConstIntMap& vert
     if (it != vertexDegree.end()) {
         dim = it->second;
     }
-    // dim++;
-    // std::pair<const CoordinateXY*, int> entry(p, dim);
-    // vertexDegree.insert(entry);
     vertexDegree[p] = dim + 1;
 }
 

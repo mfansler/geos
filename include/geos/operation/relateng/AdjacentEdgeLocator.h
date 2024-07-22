@@ -15,6 +15,7 @@
 
 #pragma once
 
+#include <geos/geom/CoordinateSequence.h>
 #include <geos/geom/Location.h>
 #include <geos/export.h>
 
@@ -28,7 +29,6 @@ namespace relateng {
 }
 }
 namespace geom {
-    class CoordinateSequence;
     class CoordinateXY;
     class Geometry;
     class LinearRing;

@@ -9,6 +9,7 @@
 #include <geos/io/WKTWriter.h>
 #include <geos/geom/Geometry.h>
 #include <geos/geom/Location.h>
+#include <geos/geom/Dimension.h>
 #include <geos/operation/relateng/PolygonNodeConverter.h>
 #include <geos/algorithm/PolygonNodeTopology.h>
 
@@ -30,67 +31,81 @@ namespace tut {
 // Common data used by all tests
 struct test_polygonnodeconverter_data {
 
-    WKTReader r;
-    // WKTWriter w;
+    NodeSection* sectionShell(double v0x, double v0y, double nx, double ny, double v1x, double v1y) {
+        return section(0, v0x, v0y, nx, ny, v1x, v1y);
+    }
 
-    std::unique_ptr<CoordinateSequence>
-    readPts(const std::string& wkt)
+    NodeSection* sectionHole(double v0x, double v0y, double nx, double ny, double v1x, double v1y) {
+        return section(1, v0x, v0y, nx, ny, v1x, v1y);
+    }
+
+    NodeSection* section(int ringId, double v0x, double v0y, double nx, double ny, double v1x, double v1y) {
+        return new NodeSection(true, Dimension::A, 1, ringId, nullptr, false, 
+            new Coordinate(v0x, v0y), new Coordinate(nx, ny), new Coordinate(v1x, v1y)); 
+    }
+
+    std::vector<const NodeSection*> 
+    toPtrVector(const std::vector<std::unique_ptr<NodeSection>>& input)
     {
-        std::unique_ptr<Geometry> line = r.read(wkt);
-        return line->getCoordinates();
+        std::vector<const NodeSection*> vec;
+        for(std::size_t i = 0, n = input.size(); i < n; ++i) {
+            vec.emplace_back(input[i].get());
+        }
+        return vec;
+    }
+
+    bool checkSectionsEqual(std::vector<const NodeSection*>& ns1, 
+                            std::vector<const NodeSection*>& ns2) {
+        if (ns1.size() != ns2.size())
+            return false;
+        sort(ns1);
+        sort(ns2);
+        for (std::size_t i = 0; i < ns1.size(); i++) {
+            int comp = ns1[i]->compareTo(ns2[i]);
+            if (comp != 0)
+                return false;
+        }
+        return true;
+    }
+    void sort(std::vector<const NodeSection*>& ns) {
+
+        // Comparator lambda for sort support
+        auto comparator = [](
+            const NodeSection* a,
+            const NodeSection* b)
+        {
+            return a->compareTo(b) < 0;
+        };
+            
+        std::sort(ns.begin(), ns.end(), comparator);
+    }
+
+    void 
+    freeNodeSections(std::vector<const NodeSection*>& ns) {
+        for (std::size_t i = 0; i < ns.size(); i++) {
+            delete ns[i]->getVertex(0);
+            delete ns[i]->getVertex(1);
+            delete ns[i]->nodePt();
+            delete ns[i];
+        }
     }
 
     void
-    checkCrossing(const std::string& wktA, const std::string& wktB)
+    checkConversion(std::vector<const NodeSection *>& input, 
+                    std::vector<const NodeSection *>& expected)
     {
-        checkCrossing(wktA, wktB, true);
-    }
-
-    void
-    checkNonCrossing(const std::string& wktA, const std::string& wktB)
-    {
-        checkCrossing(wktA, wktB, false);
-    }
-
-    void
-    checkCrossing(const std::string& wktA, const std::string& wktB, bool isExpected)
-    {
-        auto a = readPts(wktA);
-        auto b = readPts(wktB);
-        // assert: a[1] = b[1]
-        bool isCrossing = PolygonNodeTopology::isCrossing(
-            &(a->getAt<CoordinateXY>(1)),
-            &(a->getAt<CoordinateXY>(0)),
-            &(a->getAt<CoordinateXY>(2)),
-            &(b->getAt<CoordinateXY>(0)),
-            &(b->getAt<CoordinateXY>(2)));
-        ensure("checkCrossing", isCrossing == isExpected);
-    }
-
-    void
-    checkInterior(const std::string& wktA, const std::string& wktB)
-    {
-        checkInteriorSegment(wktA, wktB, true);
-    }
-
-    void
-    checkExterior(const std::string& wktA, const std::string& wktB)
-    {
-        checkInteriorSegment(wktA, wktB, false);
-    }
-
-    void
-    checkInteriorSegment(const std::string& wktA, const std::string& wktB, bool isExpected)
-    {
-        auto a = readPts(wktA);
-        auto b = readPts(wktB);
-        // assert: a[1] = b[1]
-        bool isInterior = PolygonNodeTopology::isInteriorSegment(
-            &(a->getAt<CoordinateXY>(1)),
-            &(a->getAt<CoordinateXY>(0)),
-            &(a->getAt<CoordinateXY>(2)),
-            &(b->getAt<CoordinateXY>(1)));
-        ensure("checkInteriorSegment", isInterior == isExpected);
+        auto actual = PolygonNodeConverter::convert( input );
+        auto actualPtr = toPtrVector(actual);
+        bool isEqual = checkSectionsEqual(actualPtr, expected);
+        freeNodeSections(input);
+        freeNodeSections(expected);
+        /*
+        if (! isEqual) {
+            System.out.println("Expected:" + formatSections(expected));
+            System.out.println("Actual:" + formatSections(actual));      
+        }
+        */
+        ensure("checkConversion", isEqual);
     }
 
 };
@@ -105,68 +120,94 @@ group test_polygonnodeconverter_group("geos::operation::relateng::PolygonNodeCon
 //
 
 
-// testNonCrossing
+// testShells
 template<>
 template<>
 void object::test<1> ()
 {
-    checkCrossing("LINESTRING (500 1000, 1000 1000, 1000 1500)",
-        "LINESTRING (1000 500, 1000 1000, 500 1500)");
+    std::vector<const NodeSection *> input{
+        sectionShell( 1,1, 5,5, 9,9 ),
+        sectionShell( 8,9, 5,5, 6,9 ),
+        sectionShell( 4,9, 5,5, 2,9 )
+    };
+    std::vector<const NodeSection *> expected{
+        sectionShell( 1,1, 5,5, 9,9 ),
+        sectionShell( 8,9, 5,5, 6,9 ),
+        sectionShell( 4,9, 5,5, 2,9 )
+    };
+    checkConversion(input, expected);
 }
 
-// testNonCrossingQuadrant2
+// testShellAndHole
 template<>
 template<>
 void object::test<2> ()
 {
-    checkNonCrossing("LINESTRING (500 1000, 1000 1000, 1000 1500)",
-        "LINESTRING (300 1200, 1000 1000, 500 1500)");
+    std::vector<const NodeSection *> input{
+            sectionShell( 1,1, 5,5, 9,9 ),
+            sectionHole(  6,0, 5,5, 4,0 )
+    };
+    std::vector<const NodeSection *> expected{
+            sectionShell( 1,1, 5,5, 4,0 ),
+            sectionShell( 6,0, 5,5, 9,9 )
+   };
+    checkConversion(input, expected);
 }
 
-// testNonCrossingQuadrant4
+// testShellsAndHoles
 template<>
 template<>
 void object::test<3> ()
 {
-    checkNonCrossing("LINESTRING (500 1000, 1000 1000, 1000 1500)",
-        "LINESTRING (1000 500, 1000 1000, 1500 1000)");
+    std::vector<const NodeSection *> input{
+        sectionShell( 1,1, 5,5, 9,9 ),
+        sectionHole(  6,0, 5,5, 4,0 ),
+        
+        sectionShell( 8,8, 5,5, 1,8 ),
+        sectionHole(  4,8, 5,5, 6,8 )
+    };
+    std::vector<const NodeSection *> expected{
+        sectionShell( 1,1, 5,5, 4,0 ),
+        sectionShell( 6,0, 5,5, 9,9 ),
+        
+        sectionShell( 4,8, 5,5, 1,8 ),
+        sectionShell( 8,8, 5,5, 6,8 )
+   };
+    checkConversion(input, expected);
 }
 
-// testNonCrossingCollinear
-template<>
-template<>
-void object::test<4> ()
-{
-    checkNonCrossing("LINESTRING (3 1, 5 5, 9 9)",
-        "LINESTRING (2 1, 5 5, 9 9)");
-}
-
-// testNonCrossingBothCollinear
+// testShellAnd2Holes
 template<>
 template<>
 void object::test<5> ()
 {
-    checkNonCrossing("LINESTRING (3 1, 5 5, 9 9)",
-        "LINESTRING (3 1, 5 5, 9 9)");
+    std::vector<const NodeSection *> input{
+        sectionShell( 1,1, 5,5, 9,9 ),
+        sectionHole(  7,0, 5,5, 6,0 ),
+        sectionHole(  4,0, 5,5, 3,0 )
+    };
+    std::vector<const NodeSection *> expected{
+        sectionShell( 1,1, 5,5, 3,0 ),
+        sectionShell( 4,0, 5,5, 6,0 ),
+        sectionShell( 7,0, 5,5, 9,9 )
+    };
+    checkConversion(input, expected);
 }
 
-// testInteriorSegment
+// testHoles
 template<>
 template<>
 void object::test<6> ()
 {
-    checkInterior("LINESTRING (5 9, 5 5, 9 5)",
-        "LINESTRING (5 5, 0 0)");
+    std::vector<const NodeSection *> input{
+        sectionHole(  7,0, 5,5, 6,0 ),
+        sectionHole(  4,0, 5,5, 3,0 )
+    };
+    std::vector<const NodeSection *> expected{
+        sectionShell( 4,0, 5,5, 6,0 ),
+        sectionShell( 7,0, 5,5, 3,0 )
+    };
+    checkConversion(input, expected);
 }
-
-// testExteriorSegment
-template<>
-template<>
-void object::test<7> ()
-{
-    checkExterior("LINESTRING (5 9, 5 5, 9 5)",
-        "LINESTRING (5 5, 9 9)");
-}
-
 
 } // namespace tut

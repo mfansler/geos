@@ -196,6 +196,13 @@ public:
         return &envelope;
     }
 
+    /**
+     * \brief
+     * Recurse into collection and populate vector with just the
+     * simple non-collection components of the collection.
+     */
+    void getAllGeometries(std::vector<const Geometry*>& geoms) const;
+
 protected:
 
     GeometryCollection(const GeometryCollection& gc);
@@ -247,6 +254,7 @@ protected:
     int compareToSameClass(const Geometry* gc) const override;
 
     bool hasCurvedComponents() const override;
+
 
 };
 

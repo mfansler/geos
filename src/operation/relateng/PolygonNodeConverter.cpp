@@ -43,10 +43,11 @@ PolygonNodeConverter::convert(std::vector<const NodeSection*>& polySections)
         const NodeSection* ns1,
         const NodeSection* ns2)
     {
-        return PolygonNodeTopology::compareAngle(
+        int comp = PolygonNodeTopology::compareAngle(
             ns1->nodePt(),
             ns1->getVertex(0),
             ns2->getVertex(0));
+        return comp < 0;
     };
 
     std::sort(polySections.begin(), polySections.end(), comparator);

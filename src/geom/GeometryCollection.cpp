@@ -456,5 +456,24 @@ GeometryCollection::reverseImpl() const
     return getFactory()->createGeometryCollection(std::move(reversed)).release();
 }
 
+void
+GeometryCollection::getAllGeometries(std::vector<const Geometry*>& geoms) const
+{
+    for (std::size_t i = 0; i < getNumGeometries(); i++) {
+        const Geometry* subGeom = getGeometryN(i);
+        if (subGeom == nullptr)
+            continue;
+
+        if (subGeom->isCollection()) {
+            const GeometryCollection* subColl = static_cast<const GeometryCollection*>(subGeom);
+            subColl->getAllGeometries(geoms);
+            continue;
+        }
+
+        geoms.push_back(subGeom);
+    }
+}
+
+
 } // namespace geos::geom
 } // namespace geos

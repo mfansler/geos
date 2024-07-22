@@ -20,15 +20,17 @@
 #include <geos/operation/relateng/NodeSection.h>
 #include <sstream>
 
-namespace geos {      // geos
-namespace operation { // geos.operation
-namespace relateng {  // geos.operation.relateng
 
 using geos::geom::Coordinate;
 using geos::geom::CoordinateXY;
 using geos::geom::Geometry;
 using geos::geom::Dimension;
 using geos::io::WKTWriter;
+
+
+namespace geos {      // geos
+namespace operation { // geos.operation
+namespace relateng {  // geos.operation.relateng
 
 
 /* public */
