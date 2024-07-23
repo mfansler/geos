@@ -77,10 +77,8 @@ function(configure_install_geos_pc)
     DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig)
 endfunction()
 
-if(NOT MSVC)
-  configure_install_geos_config()
-  configure_install_geos_pc()
-endif()
+configure_install_geos_config()
+configure_install_geos_pc()
 
 option(BUILD_ASTYLE "Build astyle (Artistic Style) tool" OFF)
 
